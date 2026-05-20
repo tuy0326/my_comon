@@ -1,73 +1,54 @@
-# Serial Monitor
+# My Comon - Serial Monitor
 
-Generic serial monitor VS Code extension for reading and writing serial ports on the desktop or on the web (using WebSerial).
+VS Code 串口监视器扩展，底部面板嵌入，支持实时日志过滤和 HEX 收发。
 
-## Opening the Serial Monitor view
+Based on [Eclipse CDT Cloud Serial Monitor](https://github.com/eclipse-cdt-cloud/vscode-serial-monitor).
 
-The **Serial Monitor** view displays the output of a serial port.
+## Features
 
-### Procedure
+- **底部面板嵌入** — 与终端同级，不占用编辑器标签页
+- **串口管理** — 自动枚举端口（显示设备友好名称）、自定义波特率、数据位/停止位/奇偶校验
+- **实时收发** — 文本/HEX 模式切换，HEX 发送（如 `AA BB CC`）
+- **时间戳** — 可开关的毫秒级时间戳 `[HH:mm:ss.SSS]`
+- **日志过滤** — 支持包含/排除模式，可保存过滤规则
+- **自动复制** — 鼠标选择即复制到剪贴板
+- **行缓冲** — 按完整行输出，不因串口分片截断日志
 
-Follow these steps to open the view:
+## Usage
 
-1. Use the contributed `Open Serial` command in the command palette to select a serial device (CTRL+SHIFT+P).
+1. 安装扩展后，在 VS Code 底部面板找到 **My Comon**
+2. 选择串口和波特率，点击 ▶ Start
+3. 在底部输入框发送数据，切换 HEX 模式发送十六进制
+4. 使用过滤框和模式按钮过滤日志
 
-1.
-   * In desktop environments, select a serial port in the dialog box that displays at the top of the window, and then click **Connect**.
+## Toolbar
 
-   * In browser environmants, a WebSerial dialog is displayed. Select a serial port in this dialog.
+| Button | Function |
+|--------|----------|
+| ▶ / ■ | Start / Stop |
+| 🗑 | Clear log |
+| 📋 | Toggle timestamp |
+| ABC / # | Text / Hex view toggle |
+| 🔍 | Filter input |
+| OFF / INC / EXC | Filter mode cycle |
+| 💾 | Save filter rule |
 
-    A drop-down list displays at the top of the window where you can select a baud rate. The baud rate is the data rate in bits per second between your computer and your hardware. To view the output of your hardware correctly, you must select an appropriate baud rate.
+## Settings
 
-1. Select a baud rate.
+| Key | Description | Default |
+|-----|-------------|---------|
+| `serial-monitor.defaultBaud` | Default baud rate | `115200` |
+| `serial-monitor.maxLogLines` | Max log lines | `10000` |
+| `serial-monitor.showTimestamp` | Show timestamp | `true` |
 
-    The **Serial Monitor** view opens with the baud rate selected.
+## Requirements
 
-You can have only one **Serial Monitor** view open for each serial port. Before you open an external serial monitoring program, close the relevant **Serial Monitor** view.
+- VS Code >= 1.120.0
+- Windows (uses `serialport` native module)
 
-### Next steps
+## License
 
-To modify the baud rate, follow these steps:
+[Eclipse Public License 2.0](LICENSE)
 
-1. Click **Change active device Serial baud rate** in the status bar and select a baud rate from the drop-down list.
-
-    ![Change active device Serial baud rate icon](images/change_baud_rate.png)
-
-## API USage
-
-It's possible to drive the serial monitor from another extension programmatically. Please refer to [the API file](api/serial-monitor.d.ts) for interfaces and type definitions.
-
-### Example
-
-```typescript
-import * as vscode from 'vscode';
-import { SerialMonitorExtension } from '@eclipse-cdt-cloud/vscode-serial-monitor';
-
-// Get extension
-const extension = vscode.extensions.getExtension('eclipse-cdt.serial-monitor');
-
-if (extension) {
-    // Activate extension
-    const activated = await extension.activate() as SerialMonitorExtension;
-
-    // Get API
-    const api = activated.getApi(1);
-    if (api) {
-        // Create options object
-        const options = { baudRate: 9600 };
-
-        // Create filter (all paramaters are optional)
-        const filter = {
-            serialNumber: '12345',      // Will select serial port from a specific USB device (desktop only)
-            vendorId: device.vendorId,  // can be used to filter the serial selection dialog
-            productId: device.productId // can be used to filter the serial selection dialog
-        };
-
-        // Open serial (shows serial selection dialog as appropriate)
-        const handle = await api.openSerial(filter, options, 'My Serial');
-
-        // Handle can be used later
-        await api.revealSerial(handle);
-    }
-}
-```
+Original project: Eclipse CDT Cloud Serial Monitor
+https://github.com/eclipse-cdt-cloud/vscode-serial-monitor

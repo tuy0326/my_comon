@@ -26,27 +26,122 @@ const isSerialPort = (portOrFilter?: SerialPort | SerialFilter): portOrFilter is
 
 export class SerialManager implements SerialMonitorApiV1 {
     public static openCommand = `${manifest.PACKAGE_NAME}.openSerial`;
+    public static closeCommand = `${manifest.PACKAGE_NAME}.closeSerial`;
+    public static clearLogCommand = `${manifest.PACKAGE_NAME}.clearLog`;
+    public static selectPortCommand = `${manifest.PACKAGE_NAME}.selectPort`;
+    public static selectBaudRateCommand = `${manifest.PACKAGE_NAME}.selectBaudRate`;
+    public static toggleAutoFilterCommand = `${manifest.PACKAGE_NAME}.toggleAutoFilter`;
+    public static toggleTimestampCommand = `${manifest.PACKAGE_NAME}.toggleTimestamp`;
+    public static exportCommand = `${manifest.PACKAGE_NAME}.export`;
     public static statusCommand = `${manifest.PACKAGE_NAME}.changeBaudrate`;
 
     protected serialHandles = new Map<string, SerialDevice>();
     protected serialTerms = new Map<SerialDevice, vscode.Terminal>();
     protected statusBarItem: vscode.StatusBarItem | undefined;
     protected willReopenBaud: number | undefined;
+    protected filterPanel: any | undefined;
 
     public constructor(protected serialDeviceProvider: SerialDeviceProvider) {
     }
 
-    public async activate(context: vscode.ExtensionContext): Promise<void> {
+    public async activate(context: vscode.ExtensionContext, logProvider?: any): Promise<void> {
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
         this.statusBarItem.command = SerialManager.statusCommand;
+
+        // Initialize filter panel
+        const { FilterPanel } = await import('./filter/panel');
+        this.filterPanel = new FilterPanel(context, 10000);
 
         context.subscriptions.push(
             this.statusBarItem,
             vscode.commands.registerCommand(SerialManager.openCommand, () => this.openSerial()),
+            vscode.commands.registerCommand(SerialManager.closeCommand, () => this.closeSerial()),
+            vscode.commands.registerCommand(SerialManager.clearLogCommand, () => this.clearLog()),
+            vscode.commands.registerCommand(SerialManager.selectPortCommand, () => this.selectPort()),
+            vscode.commands.registerCommand(SerialManager.selectBaudRateCommand, () => this.selectBaudRate()),
+            vscode.commands.registerCommand(SerialManager.toggleAutoFilterCommand, () => this.toggleAutoFilter()),
+            vscode.commands.registerCommand(SerialManager.toggleTimestampCommand, () => this.toggleTimestamp()),
+            vscode.commands.registerCommand(SerialManager.exportCommand, () => this.exportLog()),
             vscode.commands.registerCommand(SerialManager.statusCommand, () => this.changeBaudrate()),
         );
 
         this.updateStatus();
+    }
+
+    // New methods for panel operations
+    public async selectPort(): Promise<void> {
+        const ports = await this.listPorts();
+        if (ports.length === 0) {
+            vscode.window.showWarningMessage('No serial ports found / 未找到串口');
+            return;
+        }
+
+        const portItems = ports.map((port, index) => ({
+            label: `Port ${index + 1}: ${port.path || ''}`,
+            description: `${port.manufacturer || ''}`,
+            port: port
+        }));
+
+        const selected = await vscode.window.showQuickPick(portItems, {
+            placeHolder: 'Select a serial port / 选择串口'
+        });
+
+        if (selected) {
+            const device = await this.serialDeviceProvider.getDevice();
+            if (device) {
+                await this.openSerialPort(device);
+            }
+        }
+    }
+
+    public async selectBaudRate(): Promise<void> {
+        const selectedBaud = await this.getBaudrate();
+        if (selectedBaud) {
+            this.willReopenBaud = parseInt(selectedBaud);
+        }
+    }
+
+    public async toggleAutoFilter(): Promise<void> {
+        const config = vscode.workspace.getConfiguration('my-comon');
+        const current = await config.get('autoFilter', true);
+        await config.update('autoFilter', !current, true);
+    }
+
+    public async toggleTimestamp(): Promise<void> {
+        const config = vscode.workspace.getConfiguration('my-comon');
+        const current = await config.get('showTimestamp', true);
+        await config.update('showTimestamp', !current, true);
+    }
+
+    // New methods for filtering functionality
+    public closeSerial(): void {
+        this.serialTerms.forEach((_, device) => {
+            this.cleanup(device);
+        });
+    }
+
+    public clearLog(): void {
+        if (this.filterPanel) {
+            this.filterPanel.clearFilters();
+        }
+    }
+
+    public openFilter(): void {
+        if (this.filterPanel) {
+            this.filterPanel.createOrShow();
+        }
+    }
+
+    public clearFilter(): void {
+        if (this.filterPanel) {
+            this.filterPanel.clearFilters();
+        }
+    }
+
+    public exportLog(): void {
+        if (this.filterPanel) {
+            this.filterPanel.exportLogs();
+        }
     }
 
     public async listPorts(): Promise<SerialInfo[]> {

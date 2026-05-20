@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serial Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            color: #cccccc;
+            background-color: #1e1e1e;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .toolbar {
+            background-color: #252526;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .toolbar-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .toolbar-label {
+            color: #cccccc;
+            font-size: 12px;
+            margin-right: 4px;
+        }
+        
+        select {
+            background-color: #3c3c3c;
+            color: #cccccc;
+            border: 1px solid #3c3c3c;
+            border-radius: 3px;
+            padding: 4px 8px;
+            font-size: 12px;
+            min-width: 120px;
+            cursor: pointer;
+        }
+        
+        select:hover {
+            border-color: #007acc;
+        }
+        
+        button {
+            background-color: #0e639c;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        button:hover {
+            background-color: #1177bb;
+        }
+        
+        button:active {
+            background-color: #094771;
+        }
+        
+        button.secondary {
+            background-color: #3c3c3c;
+            color: #cccccc;
+        }
+        
+        button.secondary:hover {
+            background-color: #505050;
+        }
+        
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #cccccc;
+            font-size: 16px;
+            padding: 4px;
+            cursor: pointer;
+        }
+        
+        .icon-btn:hover {
+            color: #ffffff;
+        }
+        
+        .divider {
+            width: 1px;
+            height: 24px;
+            background-color: #505050;
+            margin: 0 5px;
+        }
+        
+        .log-container {
+            flex: 1;
+            background-color: #1e1e1e;
+            overflow-y: auto;
+            padding: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .log-entry {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .timestamp {
+            color: #6699cc;
+            margin-right: 8px;
+        }
+        
+        .placeholder {
+            color: #666666;
+            font-style: italic;
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .status-bar {
+            background-color: #007acc;
+            color: white;
+            padding: 4px 8px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .status-bar.disconnected {
+            background-color: #3c3c3c;
+        }
+        
+        .status-bar .status-connected {
+            color: #4ec94e;
+        }
+        
+        .status-bar .status-disconnected {
+            color: #c94e4e;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="icon-btn" onclick="openPort()" title="打开其他监视器">＋</button>
+        <div class="divider"></div>
+        
+        <div class="toolbar-item">
+            <span class="toolbar-label">监视模式</span>
+            <select id="monitorMode">
+                <option value="serial" selected>Serial</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-item">
+            <span class="toolbar-label">查看模式</span>
+            <select id="viewMode">
+                <option value="text" selected>文本</option>
+                <option value="hex">十六进制</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-item">
+            <span class="toolbar-label">端口</span>
+            <select id="port" onchange="selectPort()">
+                <option value="">-- 请选择端口 --</option>
+            </select>
+            <button class="icon-btn" onclick="refreshPorts()" title="刷新端口">↻</button>
+        </div>
+        
+        <div class="toolbar-item">
+            <span class="toolbar-label">波特率</span>
+            <select id="baudRate" onchange="selectBaudRate()">
+                <option value="300">300</option>
+                <option value="1200">1200</option>
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600" selected>9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="115200">115200</option>
+                <option value="230400">230400</option>
+                <option value="460800">460800</option>
+                <option value="921600">921600</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-item">
+            <span class="toolbar-label">行尾</span>
+            <select id="lineEnding" onchange="selectLineEnding()">
+                <option value="">无</option>
+                <option value="cr">CR</option>
+                <option value="lf">LF</option>
+                <option value="crlf">CRLF</option>
+            </select>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <button onclick="startMonitoring()" id="startBtn">▶ 开始监视</button>
+        <button class="secondary" onclick="stopMonitoring()" id="stopBtn" style="display:none">⏹ 停止</button>
+        
+        <div class="divider"></div>
+        
+        <button class="icon-btn" onclick="clearLog()" title="清空日志">🗑</button>
+        <button class="icon-btn" onclick="toggleAutoScroll()" title="自动滚动">📜</button>
+    </div>
+    
+    <div class="log-container" id="logContainer">
+        <div class="placeholder" id="placeholder">
+            Select port and baud rate, then click "Start Monitoring"
+            <br>
+            选择端口和波特率，然后点击"开始监视"
+        </div>
+    </div>
+    
+    <div class="status-bar disconnected" id="statusBar">
+        <span class="status-disconnected" id="statusText">● Disconnected / 未连接</span>
+        <span id="statusInfo">波特率: 9600 | 端口: --</span>
+    </div>
+    
+    <script>
+        const vscode = acquireVsCodeApi();
+        
+        function openPort() {
+            vscode.postMessage({ command: 'openPort' });
+        }
+        
+        function selectPort() {
+            vscode.postMessage({ command: 'selectPort' });
+        }
+        
+        function selectBaudRate() {
+            vscode.postMessage({ command: 'selectBaudRate' });
+        }
+        
+        function selectLineEnding() {
+            vscode.postMessage({ command: 'selectLineEnding' });
+        }
+        
+        function startMonitoring() {
+            vscode.postMessage({ command: 'startMonitoring' });
+        }
+        
+        function stopMonitoring() {
+            vscode.postMessage({ command: 'stopMonitoring' });
+        }
+        
+        function clearLog() {
+            vscode.postMessage({ command: 'clearLog' });
+        }
+        
+        function refreshPorts() {
+            vscode.postMessage({ command: 'refreshPorts' });
+        }
+        
+        function toggleAutoScroll() {
+            // Toggle auto scroll functionality
+        }
+        
+        function updateState(state) {
+            // Update port dropdown
+            const portSelect = document.getElementById('port');
+            portSelect.value = state.port || '';
+            
+            // Update baud rate dropdown
+            const baudRateSelect = document.getElementById('baudRate');
+            baudRateSelect.value = state.baudRate || 9600;
+            
+            // Update line ending dropdown
+            const lineEndingSelect = document.getElementById('lineEnding');
+            lineEndingSelect.value = state.lineEnding || '';
+            
+            // Update view mode dropdown
+            const viewModeSelect = document.getElementById('viewMode');
+            viewModeSelect.value = state.viewMode || 'text';
+            
+            // Update start/stop buttons
+            document.getElementById('startBtn').style.display = state.isMonitoring ? 'none' : 'block';
+            document.getElementById('stopBtn').style.display = state.isMonitoring ? 'block' : 'none';
+            
+            // Update status bar
+            const statusBar = document.getElementById('statusBar');
+            const statusText = document.getElementById('statusText');
+            const statusInfo = document.getElementById('statusInfo');
+            
+            if (state.isMonitoring) {
+                statusBar.classList.remove('disconnected');
+                statusText.innerHTML = '<span class="status-connected">● Connected / 已连接</span>';
+                statusText.className = 'status-connected';
+            } else {
+                statusBar.classList.add('disconnected');
+                statusText.innerHTML = '<span class="status-disconnected">● Disconnected / 未连接</span>';
+                statusText.className = 'status-disconnected';
+            }
+            
+            statusInfo.textContent = `波特率: ${state.baudRate} | 端口: ${state.port || '--'}`;
+        }
+        
+        function addLog(content) {
+            const logContainer = document.getElementById('logContainer');
+            const placeholder = document.getElementById('placeholder');
+            
+            // Hide placeholder
+            placeholder.style.display = 'none';
+            
+            // Add log entry
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = content;
+            logContainer.appendChild(entry);
+            
+            // Auto scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Listen for messages from VS Code
+        window.addEventListener('message', event => {
+            const message = event.data;
+            
+            switch (message.command) {
+                case 'updateState':
+                    updateState(message.state);
+                    break;
+                case 'addLog':
+                    addLog(message.content);
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>

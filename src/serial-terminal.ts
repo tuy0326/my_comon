@@ -1,18 +1,7 @@
-/*********************************************************************
- * Copyright (c) 2024 Arm Limited and others
- *
- * This program and the accompanying materials are made
- * available under the terms of the Eclipse Public License 2.0
- * which is available at https://www.eclipse.org/legal/epl-2.0/
- *
- * SPDX-License-Identifier: EPL-2.0
- *********************************************************************/
-
 import * as vscode from 'vscode';
 import { SerialDevice } from './serial-device';
 
 export class SerialTerminal implements vscode.Pseudoterminal {
-
     private writeEmitter = new vscode.EventEmitter<string>();
     public onDidWrite: vscode.Event<string> = this.writeEmitter.event;
     private closeEmitter = new vscode.EventEmitter<number>();
@@ -23,7 +12,7 @@ export class SerialTerminal implements vscode.Pseudoterminal {
     }
 
     public async open(_initialDimensions: vscode.TerminalDimensions | undefined): Promise<void> {
-        this.serialDevice.onData(data => this.writeOutput(data));
+        this.serialDevice.onData(data => this.processData(data));
         this.serialDevice.onEnd(() => {
             if (!this.closed) {
                 this.closed = true;
@@ -44,12 +33,32 @@ export class SerialTerminal implements vscode.Pseudoterminal {
         this.serialDevice.send(data);
     }
 
+    protected processData(data: string): void {
+        if (this.shouldShowTimestamp()) {
+            const timestamp = this.getTimestamp();
+            this.writeLine(timestamp + ' ' + data);
+        } else {
+            this.writeLine(data);
+        }
+    }
+
+    private shouldShowTimestamp(): boolean {
+        return vscode.workspace.getConfiguration('serial-monitor').get('showTimestamp', true);
+    }
+
+    private getTimestamp(): string {
+        const now = new Date();
+        const pad = (num: number, size: number): string => {
+            return num.toString().padStart(size, '0');
+        };
+        return `[${now.getFullYear()}-${pad(now.getMonth() + 1, 2)}-${pad(now.getDate(), 2)} ${pad(now.getHours(), 2)}:${pad(now.getMinutes(), 2)}:${pad(now.getSeconds(), 2)}.${pad(now.getMilliseconds(), 3)}]`;
+    }
+
     protected writeLine(message: string): void {
         this.writeOutput(`${message}\n`);
     }
 
     protected writeOutput(message: string): void {
-        // VS Code terminal needs carriage returns
         const output = message.replace(/\r/g, '').replace(/\n/g, '\r\n');
         this.writeEmitter.fire(output);
     }

@@ -1,103 +1,85 @@
 {
-  "name": "serial-monitor",
-  "displayName": "Web and Desktop Serial Monitor",
-  "description": "Views serial port output on desktop or web",
-  "version": "2.0.0",
-  "publisher": "eclipse-cdt",
-  "author": "Rob Moran <rob.moran@arm.com>",
+  "name": "my-comon",
+  "displayName": "My Common Serial Monitor",
+  "description": "串口监视器 - 支持实时日志过滤和搜索功能 (Serial Monitor with log filtering and search)",
+  "version": "1.0.18",
+  "publisher": "my-publisher",
+  "icon": "ico.png",
+  "author": "My Developer",
   "license": "EPL-2.0",
   "main": "dist/desktop/extension.js",
   "browser": "dist/browser/extension.js",
-  "repository": "https://github.com/eclipse-cdt-cloud/vscode-serial-monitor",
-  "qna": "https://github.com/eclipse-cdt-cloud/vscode-serial-monitor/issues",
-  "icon": "media/cdtcloud.png",
   "engines": {
-    "vscode": "^1.63.0"
+    "vscode": "^1.120.0"
   },
   "categories": [
     "Other"
   ],
-  "keywords": [
-    "serial",
-    "port",
-    "monitor",
-    "webserial",
-    "devices",
-    "embedded",
-    "microcontroller"
-  ],
   "scripts": {
-    "prepare": "yarn build",
-    "clean": "git clean -f -x ./node_modules ./dist",
-    "build": "webpack --mode production && yarn lint",
+    "build": "webpack --mode production",
     "watch": "webpack -w",
-    "lint": "eslint . --ext .ts,.tsx",
-    "package": "vsce package --yarn",
-    "serve": "serve --cors -p 9876"
+    "package": "vsce package --no-yarn"
   },
   "dependencies": {
     "serialport": "^12.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
-    "@types/vscode": "^1.63.0",
+    "@types/vscode": "^1.120.0",
     "@types/w3c-web-serial": "^1.0.8",
-    "@typescript-eslint/eslint-plugin": "^5.62.0",
-    "@typescript-eslint/parser": "^5.62.0",
     "@vscode/vsce": "^3.2.1",
-    "eslint": "^8.57.1",
-    "serve": "^14.2.4",
     "ts-loader": "^9.5.1",
     "typescript": "^5.9.2",
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
   "contributes": {
-    "commands": [
-      {
-        "command": "serial-monitor.openSerial",
-        "title": "Open Serial",
-        "icon": "$(console)"
-      }
-    ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "myComonPanel",
+          "title": "My Comon",
+          "icon": "ico.png"
+        }
+      ]
+    },
+    "views": {
+      "myComonPanel": [
+        {
+          "id": "myComon.serialView",
+          "name": "My Serial Monitor",
+          "type": "webview"
+        }
+      ]
+    },
     "configuration": {
       "title": "Serial Monitor",
       "properties": {
         "serial-monitor.defaultBaud": {
           "type": "string",
-          "enum": [
-            "600",
-            "1200",
-            "1800",
-            "2400",
-            "4800",
-            "9600",
-            "19200",
-            "38400",
-            "57600",
-            "115200"
-          ],
-          "default": "9600",
-          "description": "Specify the default baudrate when opening a serial port"
+          "default": "115200",
+          "description": "默认波特率"
         },
-        "serial-monitor.loggingVerbosity": {
-          "type": "string",
-          "enum": [
-            "off",
-            "error",
-            "warn",
-            "info",
-            "debug"
-          ],
-          "default": "warn",
-          "description": "Specify the logging verbosity of the extension"
+        "serial-monitor.maxLogLines": {
+          "type": "number",
+          "default": 10000,
+          "description": "最大日志行数"
+        },
+        "serial-monitor.showTimestamp": {
+          "type": "boolean",
+          "default": true,
+          "description": "显示时间戳"
         }
       }
     }
   },
   "activationEvents": [
-    "onStartupFinished"
+    "onView:myComon.serialView"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tuy0326/my_comon.git"
+  },
   "extensionKind": [
     "ui"
   ]
