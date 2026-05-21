@@ -2,7 +2,7 @@
   "name": "my-comon",
   "displayName": "My Common Serial Monitor",
   "description": "串口监视器 - 支持实时日志过滤和搜索功能 (Serial Monitor with log filtering and search)",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "publisher": "my-publisher",
   "icon": "ico.png",
   "author": "My Developer",
@@ -10,7 +10,7 @@
   "main": "dist/desktop/extension.js",
   "browser": "dist/browser/extension.js",
   "engines": {
-    "vscode": "^1.120.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
-    "@types/vscode": "^1.120.0",
+    "@types/vscode": "^1.85.0",
     "@types/w3c-web-serial": "^1.0.8",
     "@vscode/vsce": "^3.2.1",
     "ts-loader": "^9.5.1",
