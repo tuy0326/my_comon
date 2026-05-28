@@ -18,6 +18,8 @@ class SerialMonitorViewProvider implements vscode.WebviewViewProvider {
     private _lineBuffer = '';
     private _logLines: string[] = [];
     private _maxLines = 10000;
+    private _pendingLines: string[] = [];
+    private _flushTimer: any = undefined;
     private _showTimestamp = true;
     private _viewMode = 'text';
     private _portPath = '';
@@ -51,6 +53,9 @@ class SerialMonitorViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.onDidReceiveMessage(async (msg: { command: string; [key: string]: any }) => {
             switch (msg.command) {
+                case 'webviewReady':
+                    this._restoreState(customBauds);
+                    break;
                 case 'refreshPorts':
                     await this._refreshPorts();
                     break;
@@ -123,6 +128,24 @@ class SerialMonitorViewProvider implements vscode.WebviewViewProvider {
 
     private _post(msg: object) {
         this._view?.webview.postMessage(msg);
+    }
+
+    private _restoreState(customBauds: string[]) {
+        if (this._isConnected && this._serialPort) {
+            this._post({ command: 'setConnected', port: this._portPath, baud: this._baudRate });
+        }
+        if (this._logLines.length > 0) {
+            this._post({ command: 'redrawLog', lines: this._formatLines(this._logLines) });
+        }
+        this._post({ command: 'setTimestampState', enabled: this._showTimestamp });
+        this._post({ command: 'setViewMode', mode: this._viewMode });
+        if (this._filterMode !== 'off' || this._filterText) {
+            this._post({ command: 'filterState', include: this._filterInclude, exclude: this._filterExclude, mode: this._filterMode, text: this._filterText });
+        }
+        if (customBauds.length > 0) {
+            this._post({ command: 'setCustomBauds', bauds: customBauds });
+        }
+        this._refreshPorts();
     }
 
     private async _customBaud() {
@@ -307,12 +330,22 @@ class SerialMonitorViewProvider implements vscode.WebviewViewProvider {
 
     private _addLine(text: string) {
         if (this._logLines.length >= this._maxLines) {
-            this._logLines.shift();
+            this._logLines.splice(0, 500);
+            this._post({ command: 'trimLogTop', count: 500 });
         }
         this._logLines.push(text);
         if (!this._matchesFilter(text)) return;
-        const formatted = this._formatLine(text);
-        this._post({ command: 'appendLine', line: formatted });
+        this._pendingLines.push(this._formatLine(text));
+        if (!this._flushTimer) {
+            this._flushTimer = setTimeout(() => {
+                const lines = this._pendingLines;
+                this._pendingLines = [];
+                this._flushTimer = undefined;
+                if (lines.length > 0) {
+                    this._post({ command: 'appendLines', lines: lines });
+                }
+            }, 60);
+        }
     }
 
     private _formatLine(text: string): string {
@@ -389,7 +422,7 @@ class SerialMonitorViewProvider implements vscode.WebviewViewProvider {
   .toolbar { display: flex; align-items: center; gap: 5px; padding: 4px 8px; background: var(--vscode-panel-background, #1e1e1e); border-bottom: 1px solid var(--vscode-panel-border, #444); flex-shrink: 0; flex-wrap: wrap; }
   .toolbar label { font-size: 11px; color: var(--vscode-foreground, #ccc) !important; opacity: 0.9; font-weight: 500; }
   .toolbar select { background: var(--vscode-input-background, #3c3c3c); color: var(--vscode-input-foreground, #ccc) !important; border: 1px solid var(--vscode-input-border, #3c3c3c); border-radius: 3px; padding: 2px 6px; font-size: 12px; min-width: 70px; }
-  .toolbar select option { color: var(--vscode-input-foreground, #ccc) !important; background: var(--vscode-input-background, #3c3c3c); }
+  .toolbar select option { color: #1e1e1e !important; background: #ffffff !important; }
   .toolbar select:focus { outline: 1px solid var(--vscode-focusBorder); }
   .toolbar button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 3px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
   .toolbar button:hover { background: var(--vscode-button-hoverBackground); }
@@ -602,12 +635,32 @@ window.addEventListener('message', event => {
       }
       break;
     }
+    case 'appendLines': {
+      const log = document.getElementById('log');
+      removePlaceholder();
+      const frag = document.createDocumentFragment();
+      for (const l of msg.lines) {
+        const div = document.createElement('div');
+        div.innerHTML = l;
+        frag.appendChild(div);
+      }
+      log.appendChild(frag);
+      const maxDom = 3000;
+      while (log.children.length > maxDom) log.removeChild(log.firstChild);
+      scrollLog();
+      break;
+    }
     case 'appendLine':
       appendToLog(msg.line);
       break;
     case 'clearLog':
       document.getElementById('log').innerHTML = '';
       break;
+    case 'trimLogTop': {
+      const log = document.getElementById('log');
+      for (let i = 0; i < msg.count; i++) { if (log.firstChild) log.removeChild(log.firstChild); }
+      break;
+    }
     case 'redrawLog': {
       const log = document.getElementById('log');
       log.innerHTML = msg.lines.map(l => '<div>' + l + '</div>').join('');
@@ -616,6 +669,14 @@ window.addEventListener('message', event => {
     }
     case 'setTimestampState':
       document.getElementById('tsBtn').classList.toggle('active', msg.enabled);
+      break;
+    case 'setViewMode':
+      viewMode = msg.mode;
+      var inp = document.getElementById('sendInput');
+      if (viewMode === 'hex') {
+        document.getElementById('viewToggle').innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 3h1v1.5H4zm2 0h6v1.5H6zM4 6h1v1.5H4zm2 0h6v1.5H6zM4 9h1v1.5H4zm2 0h6v1.5H6zM4 12h1v1.5H4zm2 0h6v1.5H6z"/></svg>';
+        inp.placeholder = 'Send hex to serial port (e.g. AA BB CC)...';
+      }
       break;
     case 'filterState':
       filterInclude = msg.include || [];
@@ -667,7 +728,7 @@ function appendToLog(html) {
   const div = document.createElement('div');
   div.innerHTML = html;
   log.appendChild(div);
-  if (log.children.length > 10000) log.removeChild(log.firstChild);
+  while (log.children.length > 3000) log.removeChild(log.firstChild);
   scrollLog();
 }
 
@@ -720,7 +781,7 @@ document.getElementById('log').addEventListener('dblclick', function(e) {
   }
 });
 
-doRefreshPorts();
+vscode.postMessage({ command: 'webviewReady' });
 </script>
 </body>
 </html>`;

@@ -2,7 +2,7 @@
   "name": "my-comon",
   "displayName": "My Common Serial Monitor",
   "description": "串口监视器 - 支持实时日志过滤和搜索功能 (Serial Monitor with log filtering and search)",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "publisher": "my-publisher",
   "icon": "ico.png",
   "author": "My Developer",
